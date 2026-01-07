@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gemini Markdown Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
@@ -14,32 +14,25 @@
               sans: ['Inter', 'sans-serif'],
               mono: ['JetBrains Mono', 'monospace'],
             },
-            colors: {
-              gray: {
-                750: '#2d3748',
-                850: '#1a202c',
-                950: '#0d1117',
-              }
-            }
           },
         },
       }
     </script>
     <style>
-      /* Custom Scrollbar */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+      /* Custom Scrollbar for Glass UI */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
       }
-      ::-webkit-scrollbar-track {
-        background: transparent;
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
       }
-      ::-webkit-scrollbar-thumb {
-        background: #4a5568;
-        border-radius: 4px;
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
       }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #718096;
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
       }
       
       /* Print Styles */
@@ -57,8 +50,8 @@
           width: 100%;
           margin: 0;
           padding: 20px;
-          background: white;
-          color: black;
+          background: white !important; /* Force white for print */
+          color: black !important;
           overflow: visible;
         }
       }
@@ -70,20 +63,20 @@
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
     "react-markdown": "https://esm.sh/react-markdown@^10.1.0",
     "remark-gfm": "https://esm.sh/remark-gfm@^4.0.1",
     "react-syntax-highlighter": "https://esm.sh/react-syntax-highlighter@^16.1.0",
     "react-syntax-highlighter/": "https://esm.sh/react-syntax-highlighter@^16.1.0/",
     "html-to-image": "https://esm.sh/html-to-image@^1.11.13",
     "jspdf": "https://esm.sh/jspdf@^4.0.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
     "vite": "https://esm.sh/vite@^7.3.0",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
 </head>
-  <body class="bg-gray-900 text-white overflow-hidden">
+  <body class="bg-gray-900 text-white overflow-hidden antialiased">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
