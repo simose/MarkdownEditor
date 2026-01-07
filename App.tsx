@@ -82,7 +82,7 @@ const App: React.FC = () => {
   const handleExport = async (format: ExportFormat) => {
     setIsExportMenuOpen(false);
     const filename = "glass-document";
-    if (format === ExportFormat.HTML) downloadHtml(markdown, filename);
+    if (format === ExportFormat.HTML) await downloadHtml(markdown, filename);
     else if (format === ExportFormat.IMAGE && previewRef.current) await downloadImage(previewRef.current, filename);
     else if (format === ExportFormat.PDF && previewRef.current) await downloadPdf(previewRef.current, filename);
   };

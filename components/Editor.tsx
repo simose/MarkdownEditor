@@ -18,6 +18,7 @@ const COMMON_EMOJIS = [
 
 const Editor: React.FC<EditorProps> = ({ value, onChange }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiBtnRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +58,19 @@ const Editor: React.FC<EditorProps> = ({ value, onChange }) => {
     }, 0);
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Use createObjectURL for a clean, short URL in the editor (e.g. blob:http://...)
+    // This prevents the editor from being cluttered with massive Base64 strings.
+    const url = URL.createObjectURL(file);
+    insertText(`![${file.name}](${url})`);
+
+    // Reset input so the same file can be selected again if needed
+    e.target.value = '';
+  };
+
   const handleToolbarClick = (action: string) => {
     switch (action) {
       case 'bold': insertText('**', '**'); break;
@@ -68,7 +82,7 @@ const Editor: React.FC<EditorProps> = ({ value, onChange }) => {
       case 'ul': insertText('- '); break;
       case 'ol': insertText('1. '); break;
       case 'link': insertText('[', '](url)'); break;
-      case 'image': insertText('![alt text](', ')'); break;
+      case 'image': fileInputRef.current?.click(); break;
       case 'code': insertText('```\n', '\n```'); break;
       case 'table': 
         insertText(
@@ -107,6 +121,16 @@ const Editor: React.FC<EditorProps> = ({ value, onChange }) => {
 
   return (
     <div className="flex flex-col h-full w-full relative">
+      {/* Hidden File Input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        className="hidden" 
+        accept="image/*"
+        onChange={handleImageUpload} 
+        style={{ display: 'none' }}
+      />
+
       {/* Toolbar */}
       <div className="flex items-center gap-1 p-2 border-b border-white/10 bg-black/20 overflow-visible flex-wrap backdrop-blur-xl z-10">
         <ToolbarBtn icon={Bold} action="bold" title="Bold" />
@@ -121,7 +145,7 @@ const Editor: React.FC<EditorProps> = ({ value, onChange }) => {
         <ToolbarBtn icon={List} action="ul" title="Unordered List" />
         <div className="w-px h-4 bg-white/20 mx-1" />
         <ToolbarBtn icon={Link} action="link" title="Link" />
-        <ToolbarBtn icon={Image} action="image" title="Image" />
+        <ToolbarBtn icon={Image} action="image" title="Upload Image" />
         <ToolbarBtn icon={Code} action="code" title="Code Block" />
         <ToolbarBtn icon={Table} action="table" title="Table" />
         

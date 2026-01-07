@@ -1,7 +1,46 @@
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 
-export const downloadHtml = (content: string, filename: string) => {
+// Helper: Convert Blob to Base64
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
+export const downloadHtml = async (content: string, filename: string) => {
+  const previewElement = document.getElementById('markdown-preview');
+  let htmlContent = '';
+
+  if (previewElement) {
+    // Clone the preview node so we can modify it (replace blobs) without touching the UI
+    const clone = previewElement.cloneNode(true) as HTMLElement;
+    
+    // Find all images with blob: URLs and convert them to Base64
+    // This ensures the exported HTML file has embedded images and doesn't rely on browser session URLs
+    const images = clone.getElementsByTagName('img');
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
+      if (img.src.startsWith('blob:')) {
+        try {
+          const response = await fetch(img.src);
+          const blob = await response.blob();
+          const base64 = await blobToBase64(blob);
+          img.src = base64;
+        } catch (e) {
+          console.warn('Failed to embed image for export:', e);
+        }
+      }
+    }
+    htmlContent = clone.innerHTML;
+  } else {
+    // Fallback if preview isn't mounted (unlikely)
+    htmlContent = `<pre>${content}</pre>`;
+  }
+
   // Wrap content in a basic HTML structure for valid standalone files
   const fullHtml = `
     <!DOCTYPE html>
@@ -23,7 +62,7 @@ export const downloadHtml = (content: string, filename: string) => {
         </style>
       </head>
       <body>
-        ${document.getElementById('markdown-preview')?.innerHTML || content}
+        ${htmlContent}
       </body>
     </html>
   `;
