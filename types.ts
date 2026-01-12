@@ -21,3 +21,9 @@ export enum AiActionType {
   EXPAND = 'Continue Writing',
   TONE_PROFESSIONAL = 'Make Professional'
 }
+
+export enum Theme {
+  LIGHT = 'LIGHT',
+  DARK = 'DARK',
+  GLASS = 'GLASS'
+}
