@@ -11,18 +11,18 @@ interface PreviewProps {
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
-// Helper to generate IDs from text
+// Helper to generate IDs from text (Unicode friendly)
 const slugify = (text: string) => {
   return text
     .toString()
     .toLowerCase()
     .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^\w\-]+/g, '')
-    .replace(/\-\-+/g, '-');
+    .replace(/\s+/g, '-'); // Simple slugify to preserve unicode/chinese characters
 };
 
 const Preview = forwardRef<HTMLDivElement, PreviewProps>(({ content, theme, onScroll }, ref) => {
+  // Since we force Theme.LIGHT in App.tsx for Preview, isDark will always be false unless we change App.tsx
+  // But keeping logic generic is fine.
   const isDark = theme === Theme.DARK;
 
   return (
@@ -35,10 +35,13 @@ const Preview = forwardRef<HTMLDivElement, PreviewProps>(({ content, theme, onSc
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          // Header renderers to add IDs for TOC
-          h1: ({children}) => <h1 id={slugify(String(children))} className="scroll-mt-20">{children}</h1>,
-          h2: ({children}) => <h2 id={slugify(String(children))} className={`scroll-mt-20 border-b pb-2 ${isDark ? 'border-gray-700' : 'border-gray-300'}`}>{children}</h2>,
-          h3: ({children}) => <h3 id={slugify(String(children))} className="scroll-mt-20">{children}</h3>,
+          // Header renderers with explicit styling for visual hierarchy
+          h1: ({children}) => <h1 id={slugify(String(children))} className="scroll-mt-20 text-4xl font-bold mb-6 pb-2 border-b border-gray-200">{children}</h1>,
+          h2: ({children}) => <h2 id={slugify(String(children))} className="scroll-mt-20 text-3xl font-bold mb-5 pb-1 border-b border-gray-100">{children}</h2>,
+          h3: ({children}) => <h3 id={slugify(String(children))} className="scroll-mt-20 text-2xl font-bold mb-4">{children}</h3>,
+          h4: ({children}) => <h4 id={slugify(String(children))} className="scroll-mt-20 text-xl font-bold mb-3">{children}</h4>,
+          h5: ({children}) => <h5 id={slugify(String(children))} className="scroll-mt-20 text-lg font-bold mb-2">{children}</h5>,
+          h6: ({children}) => <h6 id={slugify(String(children))} className="scroll-mt-20 text-base font-bold mb-2 uppercase text-gray-500 tracking-wide">{children}</h6>,
           
           code({ node, inline, className, children, ...props }: any) {
             const match = /language-(\w+)/.exec(className || '');
@@ -53,7 +56,7 @@ const Preview = forwardRef<HTMLDivElement, PreviewProps>(({ content, theme, onSc
                 {String(children).replace(/\n$/, '')}
               </SyntaxHighlighter>
             ) : (
-              <code {...props} className={`${className} ${isDark ? 'bg-gray-800 text-pink-400' : 'bg-gray-200 text-pink-600'} rounded px-1.5 py-0.5 font-mono text-sm`}>
+              <code {...props} className={`${className} ${isDark ? 'bg-gray-800 text-pink-400' : 'bg-gray-100 text-pink-600'} rounded px-1.5 py-0.5 font-mono text-sm border border-gray-200`}>
                 {children}
               </code>
             );

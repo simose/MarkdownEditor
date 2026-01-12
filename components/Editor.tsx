@@ -2,7 +2,8 @@ import React, { useRef, useState, useEffect, useImperativeHandle, forwardRef } f
 import { 
   Bold, Italic, Heading, Underline, Strikethrough, 
   Quote, List, ListOrdered, Link, Image as ImageIcon, Code, 
-  Table, RotateCcw, Trash2, Smile, Upload, X, ChevronDown
+  Table, RotateCcw, Trash2, Smile, Upload, X, ChevronDown,
+  Wand2 // Icon for Formatting Tools
 } from 'lucide-react';
 import { Theme } from '../types';
 
@@ -41,10 +42,16 @@ const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(({ value, onChange, 
   // Expose the internal ref to the parent via the forwarded ref
   useImperativeHandle(ref, () => internalRef.current as HTMLTextAreaElement);
   
+  // Requirement 2: History Stack for Undo
+  const [history, setHistory] = useState<string[]>([value]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const historyTimeoutRef = useRef<number | null>(null);
+
   // UI States
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showHeadingDropdown, setShowHeadingDropdown] = useState(false);
   const [showCodeDropdown, setShowCodeDropdown] = useState(false);
+  const [showFormatDropdown, setShowFormatDropdown] = useState(false); // New format dropdown
   
   // Modal States
   const [activeModal, setActiveModal] = useState<'image' | 'link' | null>(null);
@@ -53,6 +60,7 @@ const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(({ value, onChange, 
   const emojiBtnRef = useRef<HTMLDivElement>(null);
   const headingBtnRef = useRef<HTMLDivElement>(null);
   const codeBtnRef = useRef<HTMLDivElement>(null);
+  const formatBtnRef = useRef<HTMLDivElement>(null);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -66,10 +74,64 @@ const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(({ value, onChange, 
       if (codeBtnRef.current && !codeBtnRef.current.contains(event.target as Node)) {
         setShowCodeDropdown(false);
       }
+      if (formatBtnRef.current && !formatBtnRef.current.contains(event.target as Node)) {
+        setShowFormatDropdown(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Centralized Change Handler with History Debounce
+  const handleContentChange = (newValue: string) => {
+    onChange(newValue);
+
+    // Debounce history updates to avoid recording every keystroke
+    if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current);
+    
+    historyTimeoutRef.current = window.setTimeout(() => {
+      setHistory(prev => {
+        // Discard redo history if we type new things
+        const newHistory = prev.slice(0, historyIndex + 1);
+        newHistory.push(newValue);
+        return newHistory;
+      });
+      setHistoryIndex(prev => prev + 1);
+    }, 800); // 800ms debounce
+  };
+
+  // Requirement 2: Undo Logic
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      // Directly call onChange prop, DO NOT go through handleContentChange to avoid double history push
+      onChange(history[newIndex]);
+    }
+  };
+
+  // Requirement 4: Tab Key Support
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const textarea = internalRef.current;
+      if (!textarea) return;
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      
+      // Insert 2 spaces
+      const spaces = "  ";
+      const newText = value.substring(0, start) + spaces + value.substring(end);
+      
+      handleContentChange(newText);
+
+      // Restore cursor position
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + spaces.length;
+      }, 0);
+    }
+  };
 
   const insertText = (before: string, after: string = '') => {
     const textarea = internalRef.current;
@@ -80,7 +142,7 @@ const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(({ value, onChange, 
     const selectedText = value.substring(start, end);
     const newText = value.substring(0, start) + before + selectedText + after + value.substring(end);
     
-    onChange(newText);
+    handleContentChange(newText);
     
     // Reset modal states
     setActiveModal(null);
@@ -88,6 +150,7 @@ const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(({ value, onChange, 
     setShowEmojiPicker(false);
     setShowHeadingDropdown(false);
     setShowCodeDropdown(false);
+    setShowFormatDropdown(false);
 
     // Restore focus and selection
     setTimeout(() => {
@@ -101,6 +164,94 @@ const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(({ value, onChange, 
       }
     }, 0);
   };
+
+  // --- Formatting Tools ---
+
+  // Tool 1: Format JSON
+  const formatJSON = () => {
+    const textarea = internalRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = value.substring(start, end);
+
+    if (!selectedText.trim()) {
+      alert("Please select some JSON text to format.");
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(selectedText);
+      const formatted = JSON.stringify(parsed, null, 2);
+      insertText(formatted);
+    } catch (e) {
+      alert("Invalid JSON selection.");
+    }
+  };
+
+  // Tool 2: Format Markdown Table
+  const formatMarkdownTable = () => {
+    const textarea = internalRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = value.substring(start, end);
+
+    if (!selectedText.trim() || !selectedText.includes('|')) {
+      alert("Please select a Markdown table (including pipes |) to format.");
+      return;
+    }
+
+    const lines = selectedText.trim().split('\n');
+    const rows = lines.map(line => line.split('|').map(cell => cell.trim()).filter((_, i, arr) => i !== 0 && i !== arr.length - 1)); // simplified assumptions
+
+    // A more robust simple splitter that handles standard | a | b |
+    const parseRow = (line: string) => {
+        const parts = line.split('|');
+        if (parts.length < 3) return null; // Not enough parts for a bordered table
+        // Remove first and last empty strings usually caused by | at edges
+        return parts.slice(1, parts.length - 1).map(s => s.trim());
+    };
+
+    const parsedRows = lines.map(parseRow).filter(r => r !== null) as string[][];
+    if (parsedRows.length === 0) return;
+
+    // Calculate widths
+    const colWidths = parsedRows[0].map((_, colIndex) => {
+        return Math.max(...parsedRows.map(row => (row[colIndex] || '').length));
+    });
+
+    // Reconstruct
+    const formattedLines = parsedRows.map((row, rowIndex) => {
+        const cells = row.map((cell, colIndex) => {
+            const width = colWidths[colIndex];
+            // Check if separator row
+            if (cell.match(/^-+$/)) {
+                 return '-'.repeat(width);
+            }
+            return cell.padEnd(width, ' ');
+        });
+        return `| ${cells.join(' | ')} |`;
+    });
+
+    insertText(formattedLines.join('\n'));
+  };
+
+  // Tool 3: Beautify Markdown (Headers, Lists)
+  const beautifyMarkdown = () => {
+    let clean = value;
+    // Fix headers: ensure space after #
+    clean = clean.replace(/(^|\n)(#{1,6})([^\s#])/g, '$1$2 $3');
+    // Ensure lists have space after dash
+    clean = clean.replace(/(^|\n)([-*])([^\s])/g, '$1$2 $3');
+    // Collapse 3+ newlines to 2
+    clean = clean.replace(/\n{3,}/g, '\n\n');
+    
+    handleContentChange(clean);
+    setShowFormatDropdown(false);
+  };
+
+  // --- End Formatting Tools ---
 
   // Requirement 4: Fixed List Functionality for multiple lines
   const insertList = (prefix: string, isOrdered: boolean) => {
@@ -130,7 +281,7 @@ const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(({ value, onChange, 
     const newBlock = newLines.join('\n');
     const newValue = value.substring(0, lineStart) + newBlock + value.substring(lineEnd);
     
-    onChange(newValue);
+    handleContentChange(newValue);
     setTimeout(() => {
       textarea.focus();
       // Set cursor to end of modified block
@@ -256,17 +407,19 @@ const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(({ value, onChange, 
           '| Header 1 | Header 2 |\n| :--- | :--- |\n| Cell 1 | Cell 2 |\n'
         ); 
         break;
-      case 'clear': onChange(''); break;
-      case 'reset': onChange(value); break;
+      case 'clear': handleContentChange(''); break;
+      // Requirement 2: Undo action
+      case 'undo': handleUndo(); break;
     }
   };
 
   const ToolbarBtn = ({ icon: Icon, action, title, onClick }: { icon: any, action?: string, title: string, onClick?: () => void }) => (
     <button
       onClick={onClick || (() => action && handleToolbarClick(action))}
-      className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${s.icon}`}
+      className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${s.icon} ${action === 'undo' && historyIndex === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
       title={title}
       type="button"
+      disabled={action === 'undo' && historyIndex === 0}
     >
       <Icon size={16} />
     </button>
@@ -325,7 +478,7 @@ const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(({ value, onChange, 
         <ToolbarBtn icon={Link} action="link" title="Insert Link" />
         <ToolbarBtn icon={ImageIcon} action="image" title="Insert Image" />
 
-        {/* Code Dropdown (Requirement 2) */}
+        {/* Code Dropdown */}
         <div className="relative" ref={codeBtnRef}>
             <button 
                 onClick={() => setShowCodeDropdown(!showCodeDropdown)}
@@ -346,6 +499,41 @@ const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(({ value, onChange, 
                             {lang.name}
                         </button>
                     ))}
+                </div>
+            )}
+        </div>
+        
+        {/* NEW Format Tools Dropdown */}
+        <div className="relative" ref={formatBtnRef}>
+            <button 
+                onClick={() => setShowFormatDropdown(!showFormatDropdown)}
+                className={`p-1.5 rounded-lg transition-colors flex items-center gap-0.5 ${s.icon} ${showFormatDropdown ? 'bg-white/10 text-blue-400' : ''}`}
+                title="Formatting Tools"
+            >
+                <Wand2 size={16} />
+                <ChevronDown size={10} />
+            </button>
+            {showFormatDropdown && (
+                <div className={`absolute top-full left-0 mt-2 w-48 rounded-xl py-1 z-50 shadow-xl border ${theme === Theme.LIGHT ? 'border-gray-200' : 'border-white/10'} ${s.pickerBg}`}>
+                    <button
+                        onClick={formatJSON}
+                        className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 ${s.dropdownItem}`}
+                    >
+                        <span>{}</span> Format JSON (Selection)
+                    </button>
+                    <button
+                        onClick={formatMarkdownTable}
+                        className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 ${s.dropdownItem}`}
+                    >
+                        <span>⊞</span> Format Table (Selection)
+                    </button>
+                    <div className={`my-1 border-b opacity-10 ${theme === Theme.LIGHT ? 'border-gray-900' : 'border-white'}`}></div>
+                    <button
+                        onClick={beautifyMarkdown}
+                        className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 ${s.dropdownItem}`}
+                    >
+                        <span>✨</span> Beautify Document
+                    </button>
                 </div>
             )}
         </div>
@@ -378,7 +566,7 @@ const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(({ value, onChange, 
         </div>
 
         <div className="flex-1" />
-        <ToolbarBtn icon={RotateCcw} action="reset" title="Undo (Soft)" />
+        <ToolbarBtn icon={RotateCcw} action="undo" title="Undo" />
         <ToolbarBtn icon={Trash2} action="clear" title="Clear All" />
       </div>
 
@@ -473,7 +661,8 @@ const Editor = forwardRef<HTMLTextAreaElement, EditorProps>(({ value, onChange, 
         <textarea
           ref={internalRef}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => handleContentChange(e.target.value)}
+          onKeyDown={handleKeyDown}
           onScroll={onScroll}
           className={`w-full h-full p-6 bg-transparent resize-none focus:outline-none leading-relaxed font-mono text-sm custom-scrollbar z-0 transition-colors duration-300 ${s.text}`}
           placeholder="# Start typing your masterpiece..."

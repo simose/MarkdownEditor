@@ -62,8 +62,9 @@ const App: React.FC = () => {
         const match = line.match(/^(#{1,6})\s+(.+)$/);
         if (match) {
           const level = match[1].length;
-          const text = match[2];
-          const id = text.toLowerCase().replace(/[^\w]+/g, '-');
+          const text = match[2].trim();
+          // Requirement 3: Better slug generation for Chinese/Unicode support
+          const id = text.toLowerCase().replace(/\s+/g, '-');
           return { id, text, level };
         }
         return null;
@@ -100,7 +101,6 @@ const App: React.FC = () => {
     isScrollingRef.current = source;
     
     // Clear lock after a small timeout
-    // Using a timeout is necessary because scroll events fire rapidly
     if ((window as any).scrollTimeout) clearTimeout((window as any).scrollTimeout);
     (window as any).scrollTimeout = setTimeout(() => {
       isScrollingRef.current = null;
@@ -150,6 +150,9 @@ const App: React.FC = () => {
 
   // --- Theme Styles Configuration ---
   const getThemeStyles = () => {
+    // Requirement 1: Preview area always stays white/clean regardless of theme
+    const fixedPreviewStyle = 'bg-white text-gray-900';
+
     switch (theme) {
       case Theme.LIGHT:
         return {
@@ -160,7 +163,7 @@ const App: React.FC = () => {
           toolbarBg: 'bg-white border-b border-gray-200',
           sidebarBg: 'bg-white border-r border-gray-200 shadow-[4px_0_24px_rgba(0,0,0,0.02)]', 
           editorBg: 'bg-white',
-          previewBg: 'bg-white',
+          previewBg: fixedPreviewStyle,
           itemHover: 'hover:bg-gray-100',
           iconColor: 'text-gray-600',
           activeItem: 'bg-gray-200 text-gray-900',
@@ -179,7 +182,7 @@ const App: React.FC = () => {
           toolbarBg: 'bg-gray-900 border-b border-gray-800',
           sidebarBg: 'bg-gray-900 border-r border-gray-800', 
           editorBg: 'bg-gray-950',
-          previewBg: 'bg-gray-900',
+          previewBg: fixedPreviewStyle,
           itemHover: 'hover:bg-gray-800',
           iconColor: 'text-gray-400',
           activeItem: 'bg-gray-800 text-white',
@@ -199,7 +202,7 @@ const App: React.FC = () => {
           toolbarBg: 'bg-black/20 backdrop-blur-xl border-b border-white/10',
           sidebarBg: 'bg-black/20 backdrop-blur-md border-r border-white/10',
           editorBg: 'bg-black/10 backdrop-blur-[2px]',
-          previewBg: 'bg-white/80 backdrop-blur-xl',
+          previewBg: fixedPreviewStyle,
           itemHover: 'hover:bg-white/10',
           iconColor: 'text-white/70',
           activeItem: 'bg-white/20 text-white shadow-sm ring-1 ring-white/10',
@@ -406,7 +409,8 @@ const App: React.FC = () => {
           <Preview 
             ref={previewRef} 
             content={markdown} 
-            theme={theme} 
+            // Requirement 1: Preview always renders as Light/Standard theme
+            theme={Theme.LIGHT} 
             onScroll={() => handleScroll('preview')}
           />
         </div>
